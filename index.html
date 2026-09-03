@@ -274,6 +274,15 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
 }
 .big-submit:hover{background:var(--primary-active);}
 .big-submit:active{transform:scale(.99);}
+.prev-box{
+  margin-top:14px;background:var(--surface-card);border-radius:var(--r-md);
+  padding:14px 16px;font-size:14px;line-height:1.6;color:var(--body-strong);
+}
+.prev-box b{color:var(--ink);}
+.prev-box .tag{
+  display:inline-block;background:var(--teal);color:#fff;font-size:12px;font-weight:700;
+  padding:2px 8px;border-radius:var(--r-pill);margin-right:8px;
+}
 .submit-status{margin-top:14px;font-weight:600;min-height:24px;}
 .submit-status.ok{color:var(--teal);}
 .submit-status.err{color:var(--error);}
@@ -389,6 +398,8 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
     <h2 style="font-size:26px;letter-spacing:-.5px;">선생님에게 제출</h2>
     <p class="note">아래 내용을 채운 뒤 큰 버튼을 누르세요. 기한 내 미제출 시 감점됩니다.</p>
     <p class="note" id="submit-who" style="font-weight:700;color:var(--body-strong);"></p>
+
+    <div id="prev-submit" class="prev-box" hidden></div>
 
     <h4 style="margin-top:18px;font-size:16px;">선택한 소주제</h4>
     <div class="pick-box">
@@ -793,6 +804,12 @@ function returnToGate(){
   if(gp) gp.value = '';
   const msg = document.getElementById('g-msg');
   if(msg){ msg.textContent = ''; msg.className = 'gate-msg'; }
+  // 제출 폼/이전 제출 안내 초기화 (다른 학생이 이어서 입장할 수 있으므로)
+  const it = document.getElementById('in-track'); if(it) it.value = '';
+  const sc = document.getElementById('in-chapter'); if(sc) sc.value = '';
+  const su = document.getElementById('in-unit'); if(su) su.innerHTML = '<option value="">먼저 장을 선택하세요</option>';
+  const pb = document.getElementById('prev-submit'); if(pb){ pb.hidden = true; pb.innerHTML = ''; }
+  const ss = document.getElementById('submit-status'); if(ss){ ss.textContent = ''; ss.className = 'submit-status'; }
   window.scrollTo({top:0});
 }
 
@@ -834,6 +851,8 @@ document.getElementById('g-start').addEventListener('click', function(){
       // 제출 페이지 안내 문구
       const who = document.getElementById('submit-who');
       if(who) who.textContent = '제출자: ' + cls + ' ' + no + '번 ' + name;
+      // 이전에 제출한 적이 있으면 소주제·진로를 다시 채워 보여준다
+      applyPrevSubmission(res);
       msg.textContent = '';
       document.body.classList.add('entered');
       window.scrollTo({top:0});
@@ -866,6 +885,40 @@ selChapter.addEventListener('change',()=>{
     .map(d=>'<option value="'+d.num+'">'+esc(d.num)+'. '+esc(d.title)+'</option>').join("");
   selUnit.innerHTML='<option value="">소단원 선택</option>'+opts;
 });
+
+/** 재입장 시: 서버가 돌려준 이전 제출 내용(소주제·진로)을 폼에 다시 채우고 안내 박스 표시 */
+function applyPrevSubmission(res){
+  const box = document.getElementById('prev-submit');
+  const prevTopic  = res && res.prevTopic  ? String(res.prevTopic).trim()  : '';
+  const prevCareer = res && res.prevCareer ? String(res.prevCareer).trim() : '';
+  const prevAt     = res && res.prevSubmitAt ? String(res.prevSubmitAt).trim() : '';
+
+  if(!prevTopic && !prevCareer){
+    if(box){ box.hidden = true; box.innerHTML=''; }
+    return;
+  }
+
+  // 진로 계열 입력칸 채우기
+  if(prevCareer) document.getElementById('in-track').value = prevCareer;
+
+  // "1장 1-3. 제목" → 장/소단원 셀렉트 복원
+  const m = /^([1-4])장\s+([0-9]+-[0-9]+)\./.exec(prevTopic);
+  if(m){
+    const ch = 'ch' + m[1], unitNum = m[2];
+    selChapter.value = ch;
+    selChapter.dispatchEvent(new Event('change')); // 소단원 목록 채우기
+    selUnit.value = unitNum;
+  }
+
+  if(box){
+    box.hidden = false;
+    box.innerHTML =
+      '<span class="tag">이전 제출</span>' +
+      (prevTopic  ? '<b>소주제</b> ' + esc(prevTopic) + '<br>' : '') +
+      (prevCareer ? '<b>진로 분야</b> ' + esc(prevCareer) : '') +
+      (prevAt     ? '<br><span style="color:var(--muted);font-size:13px;">제출 시각 ' + esc(prevAt) + ' · 다시 제출하면 덮어쓰기됩니다.</span>' : '');
+  }
+}
 
 document.getElementById('btn-submit').addEventListener('click',()=>{
   const status = document.getElementById('submit-status');
