@@ -41,7 +41,9 @@ p{margin:0 0 var(--sp-sm);}
 .topbar{
   position:sticky;top:0;z-index:50;background:var(--canvas);
   border-bottom:1px solid var(--hairline);
+  display:none;
 }
+body.entered .topbar{display:block;}
 .topbar__inner{
   max-width:1120px;margin:0 auto;display:flex;align-items:center;
   gap:6px;padding:10px 16px;flex-wrap:wrap;
@@ -72,7 +74,61 @@ p{margin:0 0 var(--sp-sm);}
    PAGE SHELL
    ================================================================== */
 .page{display:none;max-width:1120px;margin:0 auto;padding:28px 16px 80px;}
-.page.active{display:block;animation:fadeUp .35s ease;}
+body.entered .page.active{display:block;animation:fadeUp .35s ease;}
+
+/* ==================================================================
+   GATE — 완전 초기화면 (반·번호·이름 입력 후 시작)
+   ================================================================== */
+#gate{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:40px 16px;background:var(--surface-soft);
+}
+body.entered #gate{display:none;}
+.gate-card{
+  width:100%;max-width:440px;background:var(--canvas);
+  border:1px solid var(--hairline);border-radius:var(--r-xl);
+  padding:32px 28px;text-align:center;
+  box-shadow:0 6px 24px rgba(20,20,19,.06);
+}
+.gate-title{
+  font-size:23px;font-weight:800;letter-spacing:-.4px;color:var(--ink);
+  margin-bottom:22px;line-height:1.35;
+}
+@media(max-width:480px){.gate-title{font-size:19px;}}
+.gate-cover{
+  width:190px;max-width:70%;height:auto;             /* 원본이 커도 표시 크기는 190px 로 축소 */
+  object-fit:contain;                                 /* 비율 유지 */
+  border-radius:var(--r-md);
+  border:1px solid var(--hairline);margin:0 auto 22px;display:block;
+}
+img{max-width:100%;height:auto;}                      /* 모든 이미지 자동 축소 */
+.gate-cover-fallback{
+  width:190px;max-width:70%;aspect-ratio:3/4;margin:0 auto 22px;
+  border:1px dashed var(--hairline);border-radius:var(--r-md);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;color:var(--muted-soft);font-size:13px;background:var(--surface-card);
+  padding:12px;text-align:center;
+}
+.gate-book{font-weight:800;color:var(--ink);font-size:15px;}
+.gate-fields{display:flex;flex-direction:column;gap:12px;text-align:left;margin-bottom:20px;}
+.gate-fields label{font-size:13px;font-weight:700;color:var(--body-strong);margin-bottom:4px;display:block;}
+.gate-fields select,.gate-fields input{
+  width:100%;height:44px;padding:0 12px;font:600 15px var(--font);color:var(--ink);
+  background:var(--canvas);border:1px solid var(--hairline);border-radius:var(--r-md);outline:none;
+}
+.gate-fields select:focus,.gate-fields input:focus{
+  border-color:var(--primary);box-shadow:0 0 0 3px rgba(204,120,92,.15);
+}
+.gate-start{
+  width:100%;border:none;background:var(--primary);color:#fff;
+  font-size:18px;font-weight:800;letter-spacing:-.3px;padding:16px;
+  border-radius:var(--r-lg);box-shadow:0 4px 14px rgba(204,120,92,.4);
+  transition:transform .12s,background .15s;
+}
+.gate-start:hover{background:var(--primary-active);}
+.gate-start:active{transform:scale(.99);}
+.gate-start:disabled{opacity:.6;cursor:not-allowed;}
+.gate-msg{margin-top:12px;font-size:13px;font-weight:600;color:var(--error);min-height:18px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
 .eyebrow{
@@ -100,8 +156,18 @@ p{margin:0 0 var(--sp-sm);}
   padding:18px 20px;margin-top:24px;max-width:760px;
 }
 .warn-box .ico{font-size:26px;line-height:1;flex:none;}
-.warn-box b{color:#a9583e;font-size:17px;display:block;margin-bottom:4px;}
+.warn-box b{color:#a9583e;font-size:17px;display:block;margin-bottom:10px;}
 .warn-box span{color:#7a3f2c;font-weight:500;}
+.warn-box .body{min-width:0;}                 /* flex 자식 줄바꿈 허용 */
+.warn-line{
+  display:flex;gap:6px;word-break:keep-all;    /* 어절 단위 줄바꿈 → '다.' 홀로 안 떨어짐 */
+}
+.warn-line + .warn-line{margin-top:8px;}
+.warn-line > .dot{flex:none;}                  /* '·' 고정, 이어지는 줄은 글자 아래로 정렬 */
+@media(max-width:520px){
+  .warn-box{gap:10px;padding:16px 16px;}
+  .warn-box span,.warn-line{font-size:14px;}
+}
 
 /* ==================================================================
    장 페이지 — 소단원 탭 + 확대 카드
@@ -211,6 +277,41 @@ p{margin:0 0 var(--sp-sm);}
 </head>
 <body>
 
+<!-- ============================ GATE (완전 초기화면) ============================ -->
+<section id="gate">
+  <div class="gate-card">
+    <div class="gate-title">2026. 1학년 2학기 통합과학2 수행평가</div>
+
+    <!-- 표지 이미지: 같은 폴더에 'cover.jpg' 로 저장하면 표시됩니다.
+         (없으면 아래 대체 상자가 자동 표시) -->
+    <img class="gate-cover" src="cover.jpg" alt="청소년을 위한 기후변화 에세이 표지"
+         onerror="this.style.display='none';document.getElementById('gate-cover-fb').style.display='flex';" />
+    <div class="gate-cover-fallback" id="gate-cover-fb">
+      <span class="gate-book">청소년을 위한<br>기후변화 에세이</span>
+      <span>남성현 지음 · 해냄</span>
+      <span style="margin-top:6px;">표지 이미지를 넣으려면 이 HTML과<br>같은 폴더에 <b>cover.jpg</b> 저장</span>
+    </div>
+
+    <div class="gate-fields">
+      <div>
+        <label for="g-class">반</label>
+        <select id="g-class"><option value="">반 선택</option></select>
+      </div>
+      <div>
+        <label for="g-no">번호</label>
+        <input id="g-no" type="number" min="1" max="45" inputmode="numeric" placeholder="예: 12" />
+      </div>
+      <div>
+        <label for="g-name">이름</label>
+        <input id="g-name" type="text" placeholder="이름" />
+      </div>
+    </div>
+
+    <button class="gate-start" id="g-start">시작</button>
+    <div class="gate-msg" id="g-msg"></div>
+  </div>
+</section>
+
 <!-- ============================ TOP TABS ============================ -->
 <div class="topbar">
   <div class="topbar__inner" id="tabbar">
@@ -218,12 +319,13 @@ p{margin:0 0 var(--sp-sm);}
       <svg viewBox="0 0 24 24" fill="#cc785c"><path d="M12 1l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z"/></svg>
       기후·생태계 도서 탐구
     </span>
-    <button class="tab-btn active" data-page="home">초기화면</button>
+    <button class="tab-btn active" data-page="home">안내</button>
     <button class="tab-btn" data-page="ch1">1장</button>
     <button class="tab-btn" data-page="ch2">2장</button>
     <button class="tab-btn" data-page="ch3">3장</button>
     <button class="tab-btn" data-page="ch4">4장</button>
     <button class="tab-btn" data-page="people">기후 인물</button>
+    <button class="tab-btn" data-page="gate">초기화면</button>
     <button class="tab-btn submit-tab" data-page="submit">선생님에게 제출</button>
   </div>
 </div>
@@ -239,9 +341,10 @@ p{margin:0 0 var(--sp-sm);}
 
   <div class="warn-box">
     <span class="ico">⚠️</span>
-    <span>
-      <b>기한 안에 제출하지 않으면 감점됩니다.</b>
-      정해진 기간 내에 반드시 [선생님에게 제출] 탭에서 주제를 제출하세요.
+    <span class="body">
+      <b>주의사항</b>
+      <span class="warn-line"><span class="dot">·</span><span>기한 안에 제출하지 않으면 감점됩니다.</span></span>
+      <span class="warn-line"><span class="dot">·</span><span>자신의 학번과 이름이 아닌 경우에는 인정되지 않습니다.</span></span>
     </span>
   </div>
 
@@ -252,7 +355,7 @@ p{margin:0 0 var(--sp-sm);}
       <li>카드 안의 5개 하위 탭(핵심 키워드 · 간단 소개 · 관련 진로 계열 · 관련 직업 예시 · 진로 연결 탐구 방향 예시)을 확인합니다.</li>
       <li>‘간단 소개’는 짧게 요약한 것이며, 주제를 고른 뒤에는 책의 해당 부분을 직접 읽고 자신의 언어로 글을 써야 합니다.</li>
       <li>‘관련 진로 계열·직업 예시’는 예시일 뿐입니다. 여기에 없는 진로와 연결해도 좋습니다.</li>
-      <li>주제를 정했다면 [선생님에게 제출] 탭에서 반·번호·이름과 함께 제출합니다.</li>
+      <li>주제를 정했다면 [선생님에게 제출] 탭에서 장·소단원을 골라 제출합니다. (반·번호·이름은 처음 화면에서 이미 입력됨)</li>
     </ol>
   </div>
 </section>
@@ -269,22 +372,8 @@ p{margin:0 0 var(--sp-sm);}
   <div class="submit-wrap">
     <div class="eyebrow">제출</div>
     <h2 style="font-size:26px;letter-spacing:-.5px;">선생님에게 제출</h2>
-    <p class="note">아래 내용을 모두 채운 뒤 큰 버튼을 누르세요. 기한 내 미제출 시 감점됩니다.</p>
-
-    <div class="field-grid">
-      <div class="field">
-        <label for="in-class">반</label>
-        <select id="in-class"><option value="">반 선택</option></select>
-      </div>
-      <div class="field">
-        <label for="in-no">번호</label>
-        <input id="in-no" type="number" min="1" max="40" placeholder="예: 12" />
-      </div>
-      <div class="field">
-        <label for="in-name">이름</label>
-        <input id="in-name" type="text" placeholder="이름" />
-      </div>
-    </div>
+    <p class="note">아래 내용을 채운 뒤 큰 버튼을 누르세요. 기한 내 미제출 시 감점됩니다.</p>
+    <p class="note" id="submit-who" style="font-weight:700;color:var(--body-strong);"></p>
 
     <h4 style="margin-top:18px;font-size:16px;">선택한 소주제</h4>
     <div class="pick-box">
@@ -562,7 +651,7 @@ const CHAPTER_TITLE = {
 /* 주: ch1~ch4 부제는 소단원 흐름을 요약한 표시용 문구입니다(엑셀엔 장 제목만 존재).
    장 구분과 소단원 데이터는 모두 엑셀 원문 그대로입니다. */
 
-const CLASS_LIST = Array.from({length:12}, (_,i)=> (i+1)+"반"); // 학급 수는 배포 시 조정
+const CLASS_LIST = Array.from({length:10}, (_,i)=> (i+1)+"반"); // 학급 수 조정 지점 (Apps Script CLASS_NUMBERS 와 일치시킬 것)
 
 /* ==================================================================
    2. 상태 (JS 변수만 사용 — storage 미사용)
@@ -664,20 +753,74 @@ document.getElementById('tabbar').addEventListener('click',e=>{
   const btn = e.target.closest('.tab-btn');
   if(!btn) return;
   const pg = btn.dataset.page;
+
+  if(pg === 'gate'){        // 처음(반·번호·이름 입력) 화면으로 되돌아가기
+    returnToGate();
+    return;
+  }
+
   state.page = pg;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b===btn));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+pg));
   window.scrollTo({top:0, behavior:'smooth'});
 });
 
+/** GATE 로 복귀: 입력값은 유지(다시 채워둠), 다음 '시작' 클릭은 접속으로 재집계 */
+function returnToGate(){
+  document.body.classList.remove('entered');
+  accessLogged = false;
+  const gc = document.getElementById('g-class');
+  const gn = document.getElementById('g-no');
+  const gm = document.getElementById('g-name');
+  if(gc) gc.value = STUDENT.cls || '';
+  if(gn) gn.value = STUDENT.no  || '';
+  if(gm) gm.value = STUDENT.name|| '';
+  const msg = document.getElementById('g-msg');
+  if(msg) msg.textContent = '';
+  window.scrollTo({top:0});
+}
+
 /* ==================================================================
-   5. 제출 페이지 로직
+   5. GATE (완전 초기화면) — 반·번호·이름 입력 → 시작 → 접속 로그 전송
    ================================================================== */
-const selClass = document.getElementById('in-class');
+const STUDENT = { cls:'', no:'', name:'' };   // 세션 동안 유지 (storage 미사용)
+
+const gClass = document.getElementById('g-class');
 CLASS_LIST.forEach(c=>{
-  const o=document.createElement('option'); o.value=c; o.textContent=c; selClass.appendChild(o);
+  const o=document.createElement('option'); o.value=c; o.textContent=c; gClass.appendChild(o);
 });
 
+document.getElementById('g-start').addEventListener('click', function(){
+  const btn = this;
+  const cls = gClass.value;
+  const no = document.getElementById('g-no').value.trim();
+  const name = document.getElementById('g-name').value.trim();
+  const msg = document.getElementById('g-msg');
+
+  if(!cls || !no || !name){
+    msg.textContent = '반 · 번호 · 이름을 모두 입력해 주세요.';
+    return;
+  }
+  msg.textContent = '';
+  STUDENT.cls = cls; STUDENT.no = no; STUDENT.name = name;
+
+  // 접속 로그 전송(접속 시간 + 접속 횟수 카운팅은 백엔드에서 처리)
+  btn.disabled = true;
+  logAccess({ cls:cls, no:no, name:name });
+
+  // 제출 페이지의 안내 문구에 학생 정보 표시
+  const who = document.getElementById('submit-who');
+  if(who) who.textContent = '제출자: ' + cls + ' ' + no + '번 ' + name;
+
+  // 현재 초기화면으로 진입
+  document.body.classList.add('entered');
+  window.scrollTo({top:0});
+  setTimeout(function(){ btn.disabled = false; }, 1200);
+});
+
+/* ==================================================================
+   6. 제출 페이지 로직 (반·번호·이름은 GATE 에서 이미 받음)
+   ================================================================== */
 const selChapter = document.getElementById('in-chapter');
 const selUnit = document.getElementById('in-unit');
 selChapter.addEventListener('change',()=>{
@@ -691,31 +834,21 @@ selChapter.addEventListener('change',()=>{
   selUnit.innerHTML='<option value="">소단원 선택</option>'+opts;
 });
 
-// 접속 로그 훅: 반/번호/이름 모두 채워지면 1회 전송
-function maybeLogAccess(){
-  logAccess({
-    cls: selClass.value,
-    no: document.getElementById('in-no').value.trim(),
-    name: document.getElementById('in-name').value.trim()
-  });
-}
-['in-class','in-no','in-name'].forEach(id=>{
-  document.getElementById(id).addEventListener('change', maybeLogAccess);
-  document.getElementById(id).addEventListener('blur', maybeLogAccess);
-});
-
 document.getElementById('btn-submit').addEventListener('click',()=>{
   const status = document.getElementById('submit-status');
-  const cls = selClass.value;
-  const no = document.getElementById('in-no').value.trim();
-  const name = document.getElementById('in-name').value.trim();
+  const cls = STUDENT.cls, no = STUDENT.no, name = STUDENT.name;
   const ch = selChapter.value;
   const unit = selUnit.value;
   const track = document.getElementById('in-track').value.trim();
 
-  if(!cls || !no || !name || !ch || !unit){
+  if(!cls || !no || !name){
     status.className='submit-status err';
-    status.textContent='⚠️ 반·번호·이름·장·소단원을 모두 선택/입력해 주세요.';
+    status.textContent='⚠️ 학생 정보가 없습니다. 처음 화면에서 반·번호·이름을 입력하고 시작해 주세요.';
+    return;
+  }
+  if(!ch || !unit){
+    status.className='submit-status err';
+    status.textContent='⚠️ 장과 소단원을 모두 선택해 주세요.';
     return;
   }
   const unitObj = DATA.find(d=>d.ch===ch && d.num===unit);
