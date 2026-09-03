@@ -91,10 +91,11 @@ body.entered #gate{display:none;}
   box-shadow:0 6px 24px rgba(20,20,19,.06);
 }
 .gate-title{
-  font-size:23px;font-weight:800;letter-spacing:-.4px;color:var(--ink);
-  margin-bottom:22px;line-height:1.35;
+  /* 화면 폭에 맞춰 한 줄로 들어가도록 자동 축소 (데스크톱 최대 23px) */
+  font-size:clamp(13px, 4vw, 23px);
+  font-weight:800;letter-spacing:-.4px;color:var(--ink);
+  margin-bottom:22px;line-height:1.35;white-space:nowrap;
 }
-@media(max-width:480px){.gate-title{font-size:19px;}}
 .gate-cover{
   width:190px;max-width:70%;height:auto;             /* 원본이 커도 표시 크기는 190px 로 축소 */
   object-fit:contain;                                 /* 비율 유지 */
@@ -128,7 +129,12 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
 .gate-start:hover{background:var(--primary-active);}
 .gate-start:active{transform:scale(.99);}
 .gate-start:disabled{opacity:.6;cursor:not-allowed;}
-.gate-msg{margin-top:12px;font-size:13px;font-weight:600;color:var(--error);min-height:18px;}
+.gate-msg{margin-top:12px;font-size:13px;font-weight:700;color:var(--error);min-height:18px;}
+.gate-msg.ok{color:var(--teal);}
+.gate-help{
+  margin:14px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted);
+  text-align:left;background:var(--surface-card);border-radius:var(--r-md);padding:12px 14px;
+}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
 .eyebrow{
@@ -305,10 +311,19 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
         <label for="g-name">이름</label>
         <input id="g-name" type="text" placeholder="이름" />
       </div>
+      <div>
+        <label for="g-pw">비밀번호 설정 (숫자 4자리)</label>
+        <input id="g-pw" type="password" inputmode="numeric" autocomplete="off"
+               maxlength="4" pattern="[0-9]{4}" placeholder="숫자 4자리" />
+      </div>
     </div>
 
     <button class="gate-start" id="g-start">시작</button>
     <div class="gate-msg" id="g-msg"></div>
+    <p class="gate-help">
+      처음 입장할 때 비밀번호를 만들고, 다음에 다시 접속할 때 이 비밀번호가 필요합니다.<br>
+      비밀번호를 잊었거나 문제가 있으면 선생님에게 이야기하세요.
+    </p>
   </div>
 </section>
 
@@ -406,47 +421,47 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
 /* ==================================================================
    0. 백엔드 연동 (Google Apps Script Web App)
    ------------------------------------------------------------------
-   - mode:'no-cors' 로 전송하므로 프론트엔드는 응답 본문을 읽을 수 없다.
-     → 전송은 fire-and-forget, UI 는 낙관적으로 "완료" 처리.
+   - 입장 시 비밀번호 확인을 해야 하므로 응답(JSON)을 읽는다.
+     Content-Type: text/plain 의 POST 는 CORS 프리플라이트가 없어
+     Apps Script 응답을 그대로 읽을 수 있다.
+   - 반드시 웹앱을 '액세스: 모든 사용자'로 배포해야 응답을 읽을 수 있다.
    - 학년은 1학년 고정(학번 = 학년 + 반2자리 + 번호2자리, 백엔드에서 조합).
    ================================================================== */
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby6CQi4pO43YfOqxmeRD61dHNL23F5vbcPthuOzKomuLdisdFeV_Kw6ZfPUeVmrhfAK/exec";
 const GRADE = 1;
 
-/** 공통 전송기: no-cors POST. 응답을 읽지 않고, 실패해도 화면 진행을 막지 않는다. */
-function postToGAS(body){
-  if(!GAS_WEB_APP_URL) return Promise.resolve();
+/** 공통 호출기: text/plain POST → JSON 응답 반환 (실패 시 reject) */
+function callGAS(body){
+  if(!GAS_WEB_APP_URL) return Promise.reject(new Error('GAS_WEB_APP_URL 미설정'));
   return fetch(GAS_WEB_APP_URL, {
     method:'POST',
-    mode:'no-cors',
-    headers:{'Content-Type':'text/plain;charset=utf-8'}, // no-cors 허용 헤더 + GAS CORS 회피
-    body: JSON.stringify(body)
-  }).catch(function(err){ console.warn('[GAS] 전송 실패(무시):', err); });
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(body),
+    redirect:'follow'
+  }).then(function(r){ return r.json(); });
 }
 
-let accessLogged = false;
-/** 접속 로그 훅: 반+번호+이름이 모두 채워진 순간 1회 전송(그 전엔 보류) */
-function logAccess(payload){
-  if(accessLogged) return;
-  if(!payload || !payload.cls || !payload.no || !payload.name) return; // 학번 미입력 → 보류
-  accessLogged = true;
-  postToGAS({
-    type:'access', grade:GRADE,
-    cls:payload.cls, no:payload.no, name:payload.name
+/** 입장 + 비밀번호 확인.
+ *  응답 예: {ok:true, firstTime:true|false}  |  {ok:false, reason:'badpw'|'error', message}
+ *  - 처음 입장: 비밀번호를 시트에 저장 + 접속 횟수/시간 기록
+ *  - 재접속: 저장된 비밀번호와 일치해야 통과, 접속 횟수 +1 */
+function verifyEnter(payload){
+  return callGAS({
+    type:'enter', grade:GRADE,
+    cls:payload.cls, no:payload.no, name:payload.name, password:payload.password
   });
 }
 
-/** 제출 훅: no-cors 전송 후 곧바로 성공 처리(응답 대기 안 함) */
+/** 제출: 비밀번호도 함께 보내 서버에서 재확인한다. */
 function submitToTeacher(payload){
-  postToGAS({
+  return callGAS({
     type:'submit', grade:GRADE,
-    cls:payload.cls, no:payload.no, name:payload.name,
+    cls:payload.cls, no:payload.no, name:payload.name, password:payload.password,
     chapterLabel:payload.chapterLabel,
     unitNum:payload.unitNum,
     unitTitle:payload.unitTitle,
     careerTrack:payload.careerTrack
   });
-  return Promise.resolve({ok:true});
 }
 
 /* ==================================================================
@@ -765,25 +780,26 @@ document.getElementById('tabbar').addEventListener('click',e=>{
   window.scrollTo({top:0, behavior:'smooth'});
 });
 
-/** GATE 로 복귀: 입력값은 유지(다시 채워둠), 다음 '시작' 클릭은 접속으로 재집계 */
+/** GATE 로 복귀: 입력값은 유지(다시 채워둠). 재입장 시 비밀번호를 다시 확인한다. */
 function returnToGate(){
   document.body.classList.remove('entered');
-  accessLogged = false;
   const gc = document.getElementById('g-class');
   const gn = document.getElementById('g-no');
   const gm = document.getElementById('g-name');
+  const gp = document.getElementById('g-pw');
   if(gc) gc.value = STUDENT.cls || '';
   if(gn) gn.value = STUDENT.no  || '';
   if(gm) gm.value = STUDENT.name|| '';
+  if(gp) gp.value = '';
   const msg = document.getElementById('g-msg');
-  if(msg) msg.textContent = '';
+  if(msg){ msg.textContent = ''; msg.className = 'gate-msg'; }
   window.scrollTo({top:0});
 }
 
 /* ==================================================================
-   5. GATE (완전 초기화면) — 반·번호·이름 입력 → 시작 → 접속 로그 전송
+   5. GATE (완전 초기화면) — 반·번호·이름·비밀번호 → 시작 → 서버 확인 후 진입
    ================================================================== */
-const STUDENT = { cls:'', no:'', name:'' };   // 세션 동안 유지 (storage 미사용)
+const STUDENT = { cls:'', no:'', name:'', password:'' };   // 세션 동안 유지 (storage 미사용)
 
 const gClass = document.getElementById('g-class');
 CLASS_LIST.forEach(c=>{
@@ -795,27 +811,44 @@ document.getElementById('g-start').addEventListener('click', function(){
   const cls = gClass.value;
   const no = document.getElementById('g-no').value.trim();
   const name = document.getElementById('g-name').value.trim();
+  const pw = document.getElementById('g-pw').value.trim();
   const msg = document.getElementById('g-msg');
+  msg.className = 'gate-msg';
 
   if(!cls || !no || !name){
     msg.textContent = '반 · 번호 · 이름을 모두 입력해 주세요.';
     return;
   }
-  msg.textContent = '';
-  STUDENT.cls = cls; STUDENT.no = no; STUDENT.name = name;
+  if(!/^[0-9]{4}$/.test(pw)){
+    msg.textContent = '비밀번호는 숫자 4자리로 입력해 주세요.';
+    return;
+  }
 
-  // 접속 로그 전송(접속 시간 + 접속 횟수 카운팅은 백엔드에서 처리)
+  STUDENT.cls = cls; STUDENT.no = no; STUDENT.name = name; STUDENT.password = pw;
+
   btn.disabled = true;
-  logAccess({ cls:cls, no:no, name:name });
+  msg.textContent = '확인 중…';
 
-  // 제출 페이지의 안내 문구에 학생 정보 표시
-  const who = document.getElementById('submit-who');
-  if(who) who.textContent = '제출자: ' + cls + ' ' + no + '번 ' + name;
-
-  // 현재 초기화면으로 진입
-  document.body.classList.add('entered');
-  window.scrollTo({top:0});
-  setTimeout(function(){ btn.disabled = false; }, 1200);
+  verifyEnter(STUDENT).then(function(res){
+    if(res && res.ok){
+      // 제출 페이지 안내 문구
+      const who = document.getElementById('submit-who');
+      if(who) who.textContent = '제출자: ' + cls + ' ' + no + '번 ' + name;
+      msg.textContent = '';
+      document.body.classList.add('entered');
+      window.scrollTo({top:0});
+    }else if(res && res.reason === 'badpw'){
+      msg.textContent = '비밀번호가 일치하지 않습니다. 선생님에게 이야기하세요.';
+    }else{
+      msg.textContent = (res && res.message) ? res.message
+        : '입장 처리에 문제가 있습니다. 잠시 후 다시 시도하거나 선생님에게 문의하세요.';
+    }
+  }).catch(function(err){
+    console.warn('[GAS] verifyEnter 실패:', err);
+    msg.textContent = '서버 확인에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 시도하거나 선생님에게 문의하세요.';
+  }).finally(function(){
+    btn.disabled = false;
+  });
 });
 
 /* ==================================================================
@@ -853,7 +886,7 @@ document.getElementById('btn-submit').addEventListener('click',()=>{
   }
   const unitObj = DATA.find(d=>d.ch===ch && d.num===unit);
   const payload = {
-    cls, no, name,
+    cls, no, name, password: STUDENT.password,
     chapterLabel: {ch1:'1장',ch2:'2장',ch3:'3장',ch4:'4장'}[ch],
     unitNum: unit,
     unitTitle: unitObj ? unitObj.title : '',
@@ -864,13 +897,21 @@ document.getElementById('btn-submit').addEventListener('click',()=>{
   btn.disabled = true;
   status.className='submit-status';
   status.textContent='제출 중…';
-  submitToTeacher(payload).then(()=>{
-    status.className='submit-status ok';
-    status.textContent='✅ 제출 완료 — '+payload.chapterLabel+' '+unit+'. '+payload.unitTitle+
-      '  (선생님 시트에 반영됩니다)';
-  }).catch(()=>{
-    status.className='submit-status ok';
-    status.textContent='✅ 제출을 전송했습니다 — '+payload.chapterLabel+' '+unit+'. '+payload.unitTitle;
+  submitToTeacher(payload).then(function(res){
+    if(res && res.ok){
+      status.className='submit-status ok';
+      status.textContent='✅ 제출 완료 — '+payload.chapterLabel+' '+unit+'. '+payload.unitTitle+
+        '  (선생님 시트에 반영됩니다)';
+    }else if(res && res.reason === 'badpw'){
+      status.className='submit-status err';
+      status.textContent='비밀번호가 일치하지 않습니다. 선생님에게 이야기하세요.';
+    }else{
+      status.className='submit-status err';
+      status.textContent='❌ 제출에 실패했습니다. 잠시 후 다시 시도하거나 선생님에게 문의하세요.';
+    }
+  }).catch(function(){
+    status.className='submit-status err';
+    status.textContent='❌ 서버 전송에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
   }).finally(()=>{
     setTimeout(()=>{ btn.disabled = false; }, 1500);
   });
