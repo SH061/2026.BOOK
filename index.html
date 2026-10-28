@@ -74,7 +74,7 @@ body.entered .topbar{display:block;}
    PAGE SHELL
    ================================================================== */
 .page{display:none;max-width:1120px;margin:0 auto;padding:28px 16px 80px;}
-body.entered .page.active{display:block;animation:fadeUp .35s ease;}
+body.entered .page.active{display:block;animation:fadeIn .2s ease;}
 
 /* ==================================================================
    GATE — 완전 초기화면 (반·번호·이름 입력 후 시작)
@@ -135,7 +135,10 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
   margin:14px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted);
   text-align:left;background:var(--surface-card);border-radius:var(--r-md);padding:12px 14px;
 }
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important;}
+}
 
 .eyebrow{
   font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
@@ -203,12 +206,11 @@ img{max-width:100%;height:auto;}                      /* 모든 이미지 자동
 .detail-card{
   width:100%;max-width:860px;background:var(--surface-card);
   border-radius:var(--r-xl);padding:26px;
-  transform:scale(.94);opacity:.35;
-  transition:transform .4s cubic-bezier(.2,.7,.2,1),opacity .4s;
+  transform:scale(.98);opacity:.35;
+  transition:transform .2s ease,opacity .2s ease;
 }
 .detail-card.enlarged{transform:scale(1);opacity:1;}
-.detail-card.pop{animation:popIn .55s cubic-bezier(.2,.7,.2,1);}
-@keyframes popIn{0%{transform:scale(.62);}55%{transform:scale(1.06);}100%{transform:scale(1);}}
+.detail-card.pop{animation:fadeIn .2s ease;}
 .detail-card.placeholder{background:transparent;border:1px dashed var(--hairline);color:var(--muted);text-align:center;padding:40px;opacity:1;transform:none;}
 
 .dc-num{font-size:13px;font-weight:700;color:var(--primary);letter-spacing:1px;}
